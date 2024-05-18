@@ -1,9 +1,9 @@
 from flask import Flask, request, Response
-from newsplease import NewsPlease
 import spacy
 from spacy import displacy
 import google.generativeai as genai
 import json
+from news import *
 
 # flask initialize
 app = Flask(__name__)
@@ -16,13 +16,24 @@ keys = json.load(file)
 genai.configure(api_key=keys['gemini'])
 model = genai.GenerativeModel('gemini-pro')
 
+# spaCy
+NER = spacy.load("en_core_web_lg")
+ruler = NER.add_pipe("entity_ruler", before="ner")
+exclude = [
+    {"label": "NOT_PERSON", "pattern": [{"LOWER": "jpg"}]},
+    {"label": "NOT_PERSON", "pattern": [{"LOWER": "png"}]},
+    {"label": "NOT_PERSON", "pattern": [{"TEXT": {"REGEX": ".*-.*"}}]}
+]
+
+ruler.add_patterns(exclude)
+
 @app.route('/', methods=['GET', 'POST'])
 def generate_story():
     if request.method == 'POST':
         url = request.form.get('url')
         if url:
-            article = NewsPlease.from_url(url)
-            return article.authors
+            article = get_content(url)
+            return article
         else:
             return "Please provide a valid URL."
     else:
